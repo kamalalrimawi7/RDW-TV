@@ -1,0 +1,31 @@
+name: Build RDW TV IPA
+on: [push]
+
+jobs:
+  build-ios:
+    runs-on: macos-13
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build IPA (Unsigned)
+        run: |
+          mkdir -p build/Payload
+          npx react-native bundle --entry-file App.js --platform ios --dev false --bundle-output ios/main.jsbundle
+          # ضغط الملف ليصبح IPA
+          zip -r RDW-TV.ipa App.js 
+          
+      - name: Upload Result
+        uses: actions/upload-artifact@v3
+        with:
+          name: RDW-IPA-TV
+        
+          path: RDW-TV.ipa
