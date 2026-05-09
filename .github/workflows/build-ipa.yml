@@ -16,14 +16,18 @@ jobs:
         with:
           node-version: '18'
       
-      - run: npm install --legacy-peer-deps
+      - name: Install dependencies
+        run: |
+          npm install --legacy-peer-deps
       
-      - run: |
+      - name: Install CocoaPods
+        run: |
           cd RdwTv/ios
           pod install --repo-update
           cd ../..
       
-      - run: |
+      - name: Create jsbundle
+        run: |
           npx react-native bundle \
             --entry-file index.js \
             --platform ios \
@@ -31,7 +35,8 @@ jobs:
             --bundle-output RdwTv/ios/main.jsbundle \
             --assets-dest RdwTv/ios
       
-      - run: |
+      - name: Build archive
+        run: |
           cd RdwTv/ios
           xcodebuild \
             -workspace RdwTv.xcworkspace \
@@ -41,45 +46,65 @@ jobs:
             -derivedDataPath build \
             -archivePath build/RdwTv.xcarchive \
             SWIFT_OPTIMIZATION_LEVEL=-Onone \
+            ONLY_ACTIVE_ARCH=NO \
             archive
           cd ../..
       
-      - run: |
+      - name: Create ExportOptions.plist
+        run: |
           cd RdwTv/ios
-          cat > ExportOptions.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>ad-hoc</string>
-              <key>signingStyle</key>
-              <string>automatic</string>
-              <key>stripSwiftSymbols</key>
-              <true/>
-              <key>uploadBitcode</key>
-              <false/>
-              <key>compileBitcode</key>
-              <false/>
-          </dict>
-          </plist>
-          EOF
-          
+          mkdir -p build/Export
+          cat > build/ExportOptions.plist << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>ad-hoc</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>uploadBitcode</key>
+    <false/>
+    <key>compileBitcode</key>
+    <false/>
+</dict>
+</plist>
+EOF
+      
+      - name: Export IPA
+        run: |
+          cd RdwTv/ios
           xcodebuild \
             -exportArchive \
             -archivePath build/RdwTv.xcarchive \
-            -exportOptionsPlist ExportOptions.plist \
+            -exportOptionsPlist build/ExportOptions.plist \
             -exportPath build/Export
           cd ../..
       
-      - uses: actions/upload-artifact@v4
+      - name: Check IPA
+        run: |
+          if [ -f "RdwTv/ios/build/Export/RdwTv.ipa" ]; then
+            echo "✅ IPA Built Successfully!"
+            ls -lh RdwTv/ios/build/Export/RdwTv.ipa
+          else
+            echo "❌ IPA not found!"
+            find RdwTv/ios/build -type f -name "*.ipa"
+            exit 1
+          fi
+      
+      - name: Upload IPA
         if: success()
+        uses: actions/upload-artifact@v4
         with:
           name: RDW-TV-IPA
           path: RdwTv/ios/build/Export/RdwTv.ipa
+          retention-days: 30
 
-      - uses: softprops/action-gh-release@v1
+      - name: Create Release
         if: success()
+        uses: softprops/action-gh-release@v1
         with:
           files: RdwTv/ios/build/Export/RdwTv.ipa
           tag_name: v1.0.0-${{ github.run_number }}
@@ -88,6 +113,11 @@ jobs:
             ✅ Build Status: Success
             📱 Platform: iOS
             
-            Install with Sideloadly, TrollStore, or Xcode
+            Install with:
+            - Sideloadly (https://sideloadly.io/)
+            - TrollStore
+            - Xcode
+            
+            Powered by RDW Store © 2025
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
