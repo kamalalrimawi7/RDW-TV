@@ -6,7 +6,7 @@ jobs:
     runs-on: macos-latest
     defaults:
       run:
-        working-directory: RdwTv  # هيك بنحكي لجيت هاب "ادخل جوا هاد المجلد واشتغل"
+        working-directory: RdwTv
 
     steps:
       - name: Checkout Repository
@@ -22,8 +22,12 @@ jobs:
 
       - name: Install CocoaPods
         run: |
-          cd ios
-          pod install
+          if [ -d "ios" ]; then
+            cd ios
+            pod install
+          else
+            echo "ios directory not found inside RdwTv"
+          fi
 
       - name: Build JS Bundle
         run: |
@@ -38,16 +42,17 @@ jobs:
                      -sdk iphoneos \
                      -derivedDataPath build \
                      archive -archivePath build/RDW-TV.xcarchive \
-                     CODE_SIGNING_ALLOWED=NO
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGN_IDENTITY="" \
+                     PROVISIONING_PROFILE_SPECIFIER=""
 
       - name: Package IPA
         run: |
           mkdir -p Payload
           find build -name "*.app" -exec cp -r {} Payload/ \;
-          zip -r ../RDW-TV.ipa Payload  # بنطلع الملف المضغوط للمجلد الرئيسي عشان الـ Upload يشوفه
+          zip -r ../RDW-TV.ipa Payload
 
-     - name: Upload Final IPA
-        working-directory: . # نرجع للمجلد الرئيسي عشان نرفع الملف
+      - name: Upload Final IPA
         uses: actions/upload-artifact@v4
         with:
           name: RDW-TV-Final-IPA
