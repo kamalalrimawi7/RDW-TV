@@ -4,6 +4,10 @@ on: [push]
 jobs:
   build-ios:
     runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: RdwTv  # هيك بنحكي لجيت هاب "ادخل جوا هاد المجلد واشتغل"
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -12,12 +16,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          # شلنا الكاش عشان ما يعمل تعارض مع ملفات الـ lock
 
       - name: Install Dependencies
-        run: |
-          npm ci --legacy-peer-deps
-          # أمر 'npm ci' هو الخيار المحترف لأنه بيبني المشروع بناءً على الـ package-lock.json بالظبط
+        run: npm install --legacy-peer-deps
 
       - name: Install CocoaPods
         run: |
@@ -26,12 +27,11 @@ jobs:
 
       - name: Build JS Bundle
         run: |
-          mkdir -p ios/main.jsbundle
-          npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios
+          mkdir -p ios
+          npx react-native bundle --entry-file ../App.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios || npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios
 
       - name: Compile and Archive
         run: |
-          # بناء الـ Binary الحقيقي للتطبيق
           xcodebuild -workspace ios/*.xcworkspace \
                      -scheme "RDW-TV" \
                      -configuration Release \
@@ -43,11 +43,11 @@ jobs:
       - name: Package IPA
         run: |
           mkdir -p Payload
-          # جلب ملف الـ .app اللي تم إنتاجه ووضعه في الـ Payload
-          cp -r build/Build/Intermediates.noindex/ArchiveIntermediates/RDW-TV/InstallationBuildProductsLocation/Applications/*.app Payload/ 2>/dev/null || cp -r build/Build/Products/Release-iphoneos/*.app Payload/
-          zip -r RDW-TV.ipa Payload
+          find build -name "*.app" -exec cp -r {} Payload/ \;
+          zip -r ../RDW-TV.ipa Payload  # بنطلع الملف المضغوط للمجلد الرئيسي عشان الـ Upload يشوفه
 
-      - name: Upload Final IPA
+     - name: Upload Final IPA
+        working-directory: . # نرجع للمجلد الرئيسي عشان نرفع الملف
         uses: actions/upload-artifact@v4
         with:
           name: RDW-TV-Final-IPA
