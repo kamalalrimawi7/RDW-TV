@@ -37,11 +37,11 @@ jobs:
       - name: Compile and Archive
         run: |
           xcodebuild -workspace ios/*.xcworkspace \
-                     -scheme "RDW-TV" \
+                     -scheme "RdwTv" \
                      -configuration Release \
                      -sdk iphoneos \
                      -derivedDataPath build \
-                     archive -archivePath build/RDW-TV.xcarchive \
+                     archive -archivePath build/RdwTv.xcarchive \
                      CODE_SIGNING_ALLOWED=NO \
                      CODE_SIGN_IDENTITY="" \
                      PROVISIONING_PROFILE_SPECIFIER=""
@@ -49,7 +49,8 @@ jobs:
       - name: Package IPA
         run: |
           mkdir -p Payload
-          find build -name "*.app" -exec cp -r {} Payload/ \;
+          # البحث عن الـ .app ووضعه في الـ Payload
+          find build/Build/Products/Release-iphoneos -name "*.app" -exec cp -r {} Payload/ \;
           zip -r ../RDW-TV.ipa Payload
 
       - name: Upload Final IPA
