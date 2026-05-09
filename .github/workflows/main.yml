@@ -16,45 +16,52 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: RdwTv/package-lock.json
 
       - name: Install Dependencies
-        run: npm install --legacy-peer-deps
+        run: |
+          # التثبيت النظيف (Clean Install) لضمان عدم وجود ملفات تالفة
+          npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
       - name: Install CocoaPods
         run: |
-          if [ -d "ios" ]; then
-            cd ios
-            pod install
-          else
-            echo "ios directory not found inside RdwTv"
-          fi
+          cd ios
+          # تحديث المستودعات لضمان تحميل أحدث نسخ المكتبات
+          pod repo update
+          pod install
 
       - name: Build JS Bundle
         run: |
           mkdir -p ios
-          npx react-native bundle --entry-file ../App.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios || npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios
+          npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios
 
-      - name: Compile and Archive
+      - name: Real Xcode Compile
         run: |
+          # لقط الـ Scheme وتحديد المجلد بدقة
+          SCHEME_NAME=$(xcodebuild -workspace ios/*.xcworkspace -list | grep -A 1 "Schemes:" | tail -n 1 | xargs)
+          echo "Building Scheme: $SCHEME_NAME"
+          
           xcodebuild -workspace ios/*.xcworkspace \
-                     -scheme "RdwTv" \
+                     -scheme "$SCHEME_NAME" \
                      -configuration Release \
                      -sdk iphoneos \
                      -derivedDataPath build \
                      archive -archivePath build/RdwTv.xcarchive \
                      CODE_SIGNING_ALLOWED=NO \
                      CODE_SIGN_IDENTITY="" \
-                     PROVISIONING_PROFILE_SPECIFIER=""
+                     PROVISIONING_PROFILE_SPECIFIER="" \
+                     COMPILER_INDEX_STORE_ENABLE=NO
 
-      - name: Package IPA
+      - name: Export Official IPA
         run: |
           mkdir -p Payload
-          # البحث عن الـ .app ووضعه في الـ Payload
-          find build/Build/Products/Release-iphoneos -name "*.app" -exec cp -r {} Payload/ \;
-          zip -r ../RDW-TV.ipa Payload
+          # جلب التطبيق النهائي من مسار الـ Archive الرسمي
+          cp -r build/build/Products/Release-iphoneos/*.app Payload/ 2>/dev/null || find build -name "*.app" -type d -exec cp -r {} Payload/ \;
+          zip -r ../RDW-TV-Final.ipa Payload
 
-      - name: Upload Final IPA
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: RDW-TV-Final-IPA
-          path: RDW-TV.ipa
+          name: RDW-TV-Production-Build
+          path: RDW-TV-Final.ipa
