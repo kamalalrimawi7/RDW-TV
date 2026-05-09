@@ -54,42 +54,14 @@ jobs:
             archive
           cd ..
       
-      - name: Create ExportOptions.plist
+      - name: Create IPA manually
         run: |
-          mkdir -p ios/build/Export
-          cat > ios/build/ExportOptions.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>ad-hoc</string>
-              <key>signingStyle</key>
-              <string>automatic</string>
-              <key>stripSwiftSymbols</key>
-              <true/>
-              <key>uploadBitcode</key>
-              <false/>
-              <key>compileBitcode</key>
-              <false/>
-              <key>teamID</key>
-              <string></string>
-          </dict>
-          </plist>
-          EOF
-      
-      - name: Export IPA
-        run: |
-          cd ios
-          xcodebuild \
-            -exportArchive \
-            -archivePath build/RdwTv.xcarchive \
-            -exportPath build/Export \
-            -exportOptionsPlist build/ExportOptions.plist \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_ALLOWED=NO
-          cd ..
+          mkdir -p ios/build/Export/Payload
+          cp -r ios/build/RdwTv.xcarchive/Products/Applications/RdwTv.app \
+                ios/build/Export/Payload/
+          cd ios/build/Export
+          zip -r RdwTv.ipa Payload/
+          cd ../../..
       
       - name: Check IPA
         run: |
@@ -97,10 +69,7 @@ jobs:
             echo "✅ IPA Built Successfully!"
             ls -lh ios/build/Export/RdwTv.ipa
           else
-            echo "Trying to find IPA..."
-            find ios/build -name "*.ipa" -type f
-            echo "Checking Export directory..."
-            ls -la ios/build/Export/ || echo "Export folder not found"
+            echo "❌ IPA not found!"
             exit 1
           fi
       
@@ -121,9 +90,13 @@ jobs:
           body: |
             🎬 RDW TV IPA Build ${{ github.run_number }}
             ✅ Build Status: Success
-            📱 Platform: iOS (Unsigned - Ad-Hoc)
+            📱 Platform: iOS
             
-            Install with Sideloadly or TrollStore
+            Install with:
+            - Sideloadly (https://sideloadly.io/)
+            - TrollStore
+            - AltStore
+            
             Powered by RDW Store © 2025
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
