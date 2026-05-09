@@ -8,27 +8,38 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
 
       - name: Install Dependencies
         run: npm install
 
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
+        # هذه الخطوة أساسية في الـ Build الحقيقي لربط المكتبات برمجياً
+
       - name: Build React Native Bundle
         run: |
-          mkdir -p Payload/RDW-TV.app
-          npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output Payload/RDW-TV.app/main.jsbundle
+          mkdir -p ios/main.jsbundle
+          npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios
 
-      - name: Create IPA Structure
+      - name: Export IPA (Unsigned)
         run: |
-          # تجهيز هيكلية الـ IPA الصحيحة للأيفون
-          cp -r ios/Payload Payload/ 2>/dev/null || true
+          # بناء ملف الـ .app باستخدام xcodebuild
+          xcodebuild -workspace ios/*.xcworkspace -scheme "RDW-TV" -configuration Release -sdk iphoneos -derivedDataPath build
+          
+          # تجهيز هيكلية الـ Payload
+          mkdir -p Payload
+          cp -r build/Build/Products/Release-iphoneos/*.app Payload/
           zip -r RDW-TV.ipa Payload
 
-      - name: Upload Result
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: RDW-IPA-TV
+          name: RDW-IPA-Production
           path: RDW-TV.ipa
