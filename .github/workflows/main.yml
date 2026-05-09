@@ -6,26 +6,29 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
 
       - name: Install Dependencies
         run: npm install
 
-      - name: Build IPA (Unsigned)
+      - name: Build React Native Bundle
         run: |
-          mkdir -p build/Payload
-          npx react-native bundle --entry-file App.js --platform ios --dev false --bundle-output ios/main.jsbundle
-          # ضغط الملف ليصبح IPA
-          zip -r RDW-TV.ipa App.js 
-          
+          mkdir -p Payload/RDW-TV.app
+          npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output Payload/RDW-TV.app/main.jsbundle
+
+      - name: Create IPA Structure
+        run: |
+          # تجهيز هيكلية الـ IPA الصحيحة للأيفون
+          cp -r ios/Payload Payload/ 2>/dev/null || true
+          zip -r RDW-TV.ipa Payload
+
       - name: Upload Result
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: RDW-IPA-TV
-        
           path: RDW-TV.ipa
