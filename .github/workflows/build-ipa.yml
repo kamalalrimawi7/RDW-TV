@@ -34,7 +34,7 @@ jobs:
             --bundle-output ios/main.jsbundle \
             --assets-dest ios
       
-      - name: Build archive
+      - name: Build archive (Unsigned)
         run: |
           cd ios
           xcodebuild \
@@ -47,6 +47,9 @@ jobs:
             SWIFT_OPTIMIZATION_LEVEL=-Onone \
             ONLY_ACTIVE_ARCH=NO \
             GCC_OPTIMIZATION_LEVEL=0 \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_ALLOWED=NO \
             archive
           cd ..
       
@@ -68,6 +71,8 @@ jobs:
               <false/>
               <key>compileBitcode</key>
               <false/>
+              <key>teamID</key>
+              <string></string>
           </dict>
           </plist>
           EOF
@@ -79,7 +84,10 @@ jobs:
             -exportArchive \
             -archivePath build/RdwTv.xcarchive \
             -exportPath build/Export \
-            -exportOptionsPlist build/ExportOptions.plist
+            -exportOptionsPlist build/ExportOptions.plist \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_ALLOWED=NO
           cd ..
       
       - name: Check IPA
@@ -88,7 +96,10 @@ jobs:
             echo "✅ IPA Built Successfully!"
             ls -lh ios/build/Export/RdwTv.ipa
           else
-            echo "❌ IPA not found!"
+            echo "Trying to find IPA..."
+            find ios/build -name "*.ipa" -type f
+            echo "Checking Export directory..."
+            ls -la ios/build/Export/ || echo "Export folder not found"
             exit 1
           fi
       
@@ -106,6 +117,12 @@ jobs:
         with:
           files: ios/build/Export/RdwTv.ipa
           tag_name: v1.0.0-${{ github.run_number }}
-          body: RDW TV IPA Build Success
+          body: |
+            🎬 RDW TV IPA Build ${{ github.run_number }}
+            ✅ Build Status: Success
+            📱 Platform: iOS (Unsigned - Ad-Hoc)
+            
+            Install with Sideloadly or TrollStore
+            Powered by RDW Store © 2025
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
