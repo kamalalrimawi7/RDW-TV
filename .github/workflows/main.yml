@@ -28,51 +28,43 @@ jobs:
           cd ios
           pod install
 
-      - name: Create ExportOptions.plist
+      - name: Build JS Bundle
         run: |
-          # هاد الملف هو اللي بضمن إن الـ .app والـ IPA يطلعوا صح
-          cat <<EOF > ExportOptions.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>ad-hoc</string>
-              <key>compileBitcode</key>
-              <false/>
-              <key>signingStyle</key>
-              <string>manual</string>
-              <key>signingCertificate</key>
-              <string>-</string>
-          </dict>
-          </plist>
-          EOF
+          mkdir -p ios/main.jsbundle
+          npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios || npx react-native bundle --entry-file App.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios
 
-      - name: Build and Archive
+      - name: Real Compile (Binary)
         run: |
+          # لقط اسم الـ Scheme
           SCHEME_NAME=$(xcodebuild -workspace ios/*.xcworkspace -list | grep -A 1 "Schemes:" | tail -n 1 | xargs)
           
+          # بناء التطبيق كـ Binary حقيقي (هاد هو القلب النابض للتطبيق)
           xcodebuild -workspace ios/*.xcworkspace \
                      -scheme "$SCHEME_NAME" \
                      -configuration Release \
                      -sdk iphoneos \
-                     archive -archivePath build/RdwTv.xcarchive \
-                     CODE_SIGNING_ALLOWED=NO
+                     -derivedDataPath build \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGN_IDENTITY="" \
+                     PROVISIONING_PROFILE_SPECIFIER=""
 
-      - name: Export IPA (The Official Way)
+      - name: Create Production IPA
         run: |
-          # تصدير الـ IPA باستخدام الأرشفة اللي عملناها
-          xcodebuild -exportArchive \
-                     -archivePath build/RdwTv.xcarchive \
-                     -exportPath output \
-                     -exportOptionsPlist ExportOptions.plist \
-                     CODE_SIGNING_ALLOWED=NO
+          # تجهيز مجلد الـ Payload الرسمي للأيفون
+          mkdir -p Payload
           
-          # نقل الـ IPA للمكان النهائي
-          mv output/*.ipa ../RDW-TV-Final.ipa
+          # نسخ ملف الـ .app اللي تم عمل Compile حقيقي له
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -name "*.app" -type d | head -n 1)
+          cp -r "$APP_PATH" Payload/
+          
+          # إضافة الـ JS Bundle جوا التطبيق عشان يشتغل الكود تبعك
+          cp ios/main.jsbundle Payload/*.app/ 2>/dev/null || true
+          
+          # ضغط الملف بصيغة IPA
+          zip -r ../RDW-TV-Final.ipa Payload
 
-      - name: Upload Final IPA
+      - name: Upload Working IPA
         uses: actions/upload-artifact@v4
         with:
-          name: RDW-TV-Working-IPA
+          name: RDW-TV-Final-Build
           path: RDW-TV-Final.ipa
