@@ -1,5 +1,8 @@
-name: Build RDW TV Pro IPA
+name: Build RDW TV REAL IPA
 on: [push]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-ios:
@@ -15,53 +18,61 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: RdwTv/package-lock.json
+          node-version: '24'
 
       - name: Install Dependencies
-        run: |
-          # التثبيت النظيف (Clean Install) لضمان عدم وجود ملفات تالفة
-          npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+        run: npm install --legacy-peer-deps
 
       - name: Install CocoaPods
         run: |
           cd ios
-          # تحديث المستودعات لضمان تحميل أحدث نسخ المكتبات
-          pod repo update
           pod install
 
-      - name: Build JS Bundle
+      - name: Create ExportOptions.plist
         run: |
-          mkdir -p ios
-          npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios
+          # هاد الملف هو اللي بضمن إن الـ .app والـ IPA يطلعوا صح
+          cat <<EOF > ExportOptions.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>ad-hoc</string>
+              <key>compileBitcode</key>
+              <false/>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>signingCertificate</key>
+              <string>-</string>
+          </dict>
+          </plist>
+          EOF
 
-      - name: Real Xcode Compile
+      - name: Build and Archive
         run: |
-          # لقط الـ Scheme وتحديد المجلد بدقة
           SCHEME_NAME=$(xcodebuild -workspace ios/*.xcworkspace -list | grep -A 1 "Schemes:" | tail -n 1 | xargs)
-          echo "Building Scheme: $SCHEME_NAME"
           
           xcodebuild -workspace ios/*.xcworkspace \
                      -scheme "$SCHEME_NAME" \
                      -configuration Release \
                      -sdk iphoneos \
-                     -derivedDataPath build \
                      archive -archivePath build/RdwTv.xcarchive \
-                     CODE_SIGNING_ALLOWED=NO \
-                     CODE_SIGN_IDENTITY="" \
-                     PROVISIONING_PROFILE_SPECIFIER="" \
-                     COMPILER_INDEX_STORE_ENABLE=NO
+                     CODE_SIGNING_ALLOWED=NO
 
-      - name: Export Official IPA
+      - name: Export IPA (The Official Way)
         run: |
-          mkdir -p Payload
-          # جلب التطبيق النهائي من مسار الـ Archive الرسمي
-          cp -r build/build/Products/Release-iphoneos/*.app Payload/ 2>/dev/null || find build -name "*.app" -type d -exec cp -r {} Payload/ \;
-          zip -r ../RDW-TV-Final.ipa Payload
+          # تصدير الـ IPA باستخدام الأرشفة اللي عملناها
+          xcodebuild -exportArchive \
+                     -archivePath build/RdwTv.xcarchive \
+                     -exportPath output \
+                     -exportOptionsPlist ExportOptions.plist \
+                     CODE_SIGNING_ALLOWED=NO
+          
+          # نقل الـ IPA للمكان النهائي
+          mv output/*.ipa ../RDW-TV-Final.ipa
 
-      - name: Upload IPA
+      - name: Upload Final IPA
         uses: actions/upload-artifact@v4
         with:
-          name: RDW-TV-Production-Build
+          name: RDW-TV-Working-IPA
           path: RDW-TV-Final.ipa
