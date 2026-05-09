@@ -45,7 +45,7 @@ jobs:
             -derivedDataPath build \
             -archivePath build/RdwTv.xcarchive \
             SWIFT_OPTIMIZATION_LEVEL=-Onone \
-            IPHONEOS_DEPLOYMENT_TARGET=15.0
+            IPHONEOS_DEPLOYMENT_TARGET=15.0 \
             ONLY_ACTIVE_ARCH=NO \
             GCC_OPTIMIZATION_LEVEL=0 \
             CODE_SIGN_IDENTITY="" \
