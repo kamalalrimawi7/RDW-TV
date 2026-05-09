@@ -1,0 +1,93 @@
+name: Build RDW TV IPA
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - run: npm install --legacy-peer-deps
+      
+      - run: |
+          cd RdwTv/ios
+          pod install --repo-update
+          cd ../..
+      
+      - run: |
+          npx react-native bundle \
+            --entry-file index.js \
+            --platform ios \
+            --dev false \
+            --bundle-output RdwTv/ios/main.jsbundle \
+            --assets-dest RdwTv/ios
+      
+      - run: |
+          cd RdwTv/ios
+          xcodebuild \
+            -workspace RdwTv.xcworkspace \
+            -scheme RdwTv \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            -archivePath build/RdwTv.xcarchive \
+            SWIFT_OPTIMIZATION_LEVEL=-Onone \
+            archive
+          cd ../..
+      
+      - run: |
+          cd RdwTv/ios
+          cat > ExportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>ad-hoc</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>stripSwiftSymbols</key>
+              <true/>
+              <key>uploadBitcode</key>
+              <false/>
+              <key>compileBitcode</key>
+              <false/>
+          </dict>
+          </plist>
+          EOF
+          
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/RdwTv.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath build/Export
+          cd ../..
+      
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: RDW-TV-IPA
+          path: RdwTv/ios/build/Export/RdwTv.ipa
+
+      - uses: softprops/action-gh-release@v1
+        if: success()
+        with:
+          files: RdwTv/ios/build/Export/RdwTv.ipa
+          tag_name: v1.0.0-${{ github.run_number }}
+          body: |
+            🎬 RDW TV IPA Build ${{ github.run_number }}
+            ✅ Build Status: Success
+            📱 Platform: iOS
+            
+            Install with Sideloadly, TrollStore, or Xcode
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
