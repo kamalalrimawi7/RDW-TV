@@ -49,23 +49,36 @@ jobs:
             archive
           cd ..
       
+      - name: Create ExportOptions.plist
+        run: |
+          mkdir -p ios/build/Export
+          cat > ios/build/ExportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>ad-hoc</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>stripSwiftSymbols</key>
+              <true/>
+              <key>uploadBitcode</key>
+              <false/>
+              <key>compileBitcode</key>
+              <false/>
+          </dict>
+          </plist>
+          EOF
+      
       - name: Export IPA
         run: |
           cd ios
-          mkdir -p build/Export
           xcodebuild \
             -exportArchive \
             -archivePath build/RdwTv.xcarchive \
             -exportPath build/Export \
-            -exportOptionsPlist /dev/stdin <<'EOF'
-{
-  "method": "ad-hoc",
-  "signingStyle": "automatic",
-  "stripSwiftSymbols": true,
-  "uploadBitcode": false,
-  "compileBitcode": false
-}
-EOF
+            -exportOptionsPlist build/ExportOptions.plist
           cd ..
       
       - name: Check IPA
@@ -92,13 +105,6 @@ EOF
         with:
           files: ios/build/Export/RdwTv.ipa
           tag_name: v1.0.0-${{ github.run_number }}
-          body: |
-            🎬 RDW TV IPA Build ${{ github.run_number }}
-            ✅ Build Status: Success
-            📱 Platform: iOS
-            
-            Install with Sideloadly or TrollStore
-            
-            Powered by RDW Store © 2025
+          body: RDW TV IPA Build Success
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
