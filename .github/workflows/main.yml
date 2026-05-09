@@ -1,4 +1,4 @@
-name: Build RDW TV IPA
+name: Build RDW TV Pro IPA
 on: [push]
 
 jobs:
@@ -12,32 +12,43 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          # شلنا سطر الـ cache عشان ما يعلق إذا الملف مش موجود
+          # شلنا الكاش عشان ما يعمل تعارض مع ملفات الـ lock
 
       - name: Install Dependencies
         run: |
-          if [ -f package.json ]; then
-            npm install --legacy-peer-deps
-          else
-            echo "No package.json found, skipping npm install"
-          fi
+          npm ci --legacy-peer-deps
+          # أمر 'npm ci' هو الخيار المحترف لأنه بيبني المشروع بناءً على الـ package-lock.json بالظبط
 
-      - name: Build React Native Bundle
+      - name: Install CocoaPods
         run: |
-          mkdir -p ios
-          # إذا ملف App.js هو الأساسي عندك تأكد من الاسم هون
-          npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios || echo "Bundle failed, check entry file name"
+          cd ios
+          pod install
 
-      - name: Create IPA Payload
+      - name: Build JS Bundle
         run: |
-          mkdir -p Payload/RDW-TV.app
-          # محاكاة لعملية البناء عشان يطلع لك ملف قابل للفحص
-          cp ios/main.jsbundle Payload/RDW-TV.app/ 2>/dev/null || true
-          cp -r assets Payload/RDW-TV.app/ 2>/dev/null || true
+          mkdir -p ios/main.jsbundle
+          npx react-native bundle --entry-file index.js --platform ios --dev false --bundle-output ios/main.jsbundle --assets-dest ios
+
+      - name: Compile and Archive
+        run: |
+          # بناء الـ Binary الحقيقي للتطبيق
+          xcodebuild -workspace ios/*.xcworkspace \
+                     -scheme "RDW-TV" \
+                     -configuration Release \
+                     -sdk iphoneos \
+                     -derivedDataPath build \
+                     archive -archivePath build/RDW-TV.xcarchive \
+                     CODE_SIGNING_ALLOWED=NO
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          # جلب ملف الـ .app اللي تم إنتاجه ووضعه في الـ Payload
+          cp -r build/Build/Intermediates.noindex/ArchiveIntermediates/RDW-TV/InstallationBuildProductsLocation/Applications/*.app Payload/ 2>/dev/null || cp -r build/Build/Products/Release-iphoneos/*.app Payload/
           zip -r RDW-TV.ipa Payload
 
-      - name: Upload Result
+      - name: Upload Final IPA
         uses: actions/upload-artifact@v4
         with:
-          name: RDW-IPA-TV
+          name: RDW-TV-Final-IPA
           path: RDW-TV.ipa
