@@ -19,7 +19,6 @@ target 'RdwTv' do
 
   use_react_native!(
     :path => config[:reactNativePath],
-    # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
@@ -27,16 +26,15 @@ target 'RdwTv' do
     react_native_post_install(
       installer,
       config[:reactNativePath],
-      :mac_catalyst_enabled => false,
-      # :ccache_enabled => true
+      :mac_catalyst_enabled => false
     )
-  end
-end
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    target.build_configurations.each do |config|
-      config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
-      config.build_settings['GCC_OPTIMIZATION_LEVEL'] = '0'
+
+    # Fix Swift Optimization
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
+        config.build_settings['GCC_OPTIMIZATION_LEVEL'] = '0'
+      end
     end
   end
 end
